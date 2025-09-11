@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { articlesApi, preferencesApi } from '../services/api'
-// ArticleCard is used by ArticleGrid
 import '../components/ArticleCard.tsx'
 import Pagination from '../components/Pagination'
 import ArticleGrid from '../components/ArticleGrid'
@@ -36,10 +35,9 @@ const Home: React.FC = () => {
     },
   })
 
-  // Categories could be loaded via hook if needed for dynamic filters
 
   // Skeletons during loading
-  if (isLoading) return <LoadingState message="Loading articles..." />
+  if (isLoading) return <LoadingState variant="home" />
 
   if (error) return <ErrorState message="Error loading articles. Please try again later." />
 

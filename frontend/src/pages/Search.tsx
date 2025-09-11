@@ -34,20 +34,16 @@ const Search: React.FC = () => {
 
   const { data: articles, isLoading, error } = useQuery<PaginatedResponse<Article>>({
     queryKey: ['search', query, filters, page, perPage],
-    queryFn: () => articlesApi.search({ q: query, ...filters, page, per_page: perPage }),
-    enabled: query.length >= 2 || Object.values(filters).some(filter => filter !== ''),
+    queryFn: () => {
+      const q = query.trim()
+      return articlesApi.search({ q: q || '', ...filters, page, per_page: perPage })
+    },
   })
 
   const { data: sources } = useSources()
   const { data: categories } = useCategories()
   const { data: authors } = useAuthors()
 
-  const handleSearch = () => {
-    if (query.trim()) {
-      setPage(1)
-      setSearchParams({ q: query.trim(), page: '1' })
-    }
-  }
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -61,8 +57,13 @@ const Search: React.FC = () => {
 
         <FiltersBar
           query={query}
-          onQueryChange={setQuery}
-          onSubmit={handleSearch}
+          onQueryChange={(val) => {
+            setQuery(val)
+            setPage(1)
+            const t = val.trim()
+            if (t) setSearchParams({ q: t, page: '1' })
+            else setSearchParams({ page: '1' })
+          }}
           filters={filters}
           onFilterChange={(k, v) => handleFilterChange(k, v)}
           sourceOptions={(sources?.map((s) => ({ value: s.api_slug, label: s.name })) || [])}
@@ -71,7 +72,7 @@ const Search: React.FC = () => {
         />
       </div>
 
-      {isLoading && <LoadingState message="Searching articles..." />}
+      {isLoading && <LoadingState variant="grid" />}
 
       {error && <ErrorState message="Error searching articles. Please try again." />}
 

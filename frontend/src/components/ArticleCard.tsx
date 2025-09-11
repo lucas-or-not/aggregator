@@ -24,6 +24,8 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, forceSave
   const effectiveSaved = typeof isSaved === 'boolean' ? isSaved : (forceSaved ?? article.is_saved)
   const showSaveButton = typeof canSave === 'boolean' ? canSave : Boolean(user)
 
+  const truncate = (value: string, max: number) => (value.length > max ? value.slice(0, max) + '…' : value)
+
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -95,11 +97,12 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, forceSave
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-500">
-            {article.author && <span>Dr. {article.author.name}</span>}
-            <span className="text-gray-300">•</span>
-            <span>8 min read</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-gray-400">{formatDate(article.published_at)}</span>
+            {article.author && (
+              <span title={article.author.name}>Dr. {truncate(article.author.name, 24)}</span>
+            )}
+          </div>
+          <div className="text-sm text-gray-400 ml-2 whitespace-nowrap">
+            {formatDate(article.published_at)}
           </div>
 
           {showSaveButton && (
