@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: news_aggregator_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: news_aggregator
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: news_user
+      MYSQL_PASSWORD: news_password
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - news_network
+
+  # Redis for queues and caching
+  redis:
+    image: redis:7-alpine
+    container_name: news_aggregator_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - news_network
+
+  # Meilisearch for full-text search
+  meilisearch:
+    image: getmeili/meilisearch:v1.5
+    container_name: news_aggregator_meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: masterKey
+      MEILI_ENV: development
+    volumes:
+      - meilisearch_data:/meili_data
+    ports:
+      - "7700:7700"
+    networks:
+      - news_network
+
+  # Laravel Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: news_aggregator_backend
+    restart: unless-stopped
+    volumes:
+      - ./backend/app:/var/www/html/app
+      - ./backend/config:/var/www/html/config
+      - ./backend/database:/var/www/html/database
+      - ./backend/routes:/var/www/html/routes
+      - ./backend/resources:/var/www/html/resources
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/bootstrap:/var/www/html/bootstrap
+      - ./backend/.env:/var/www/html/.env
+    depends_on:
+      - db
+      - redis
+      - meilisearch
+    networks:
+      - news_network
+
+
+
+
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: news_aggregator_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./backend/public:/var/www/html/public
+      - ./frontend/dist:/var/www/html/frontend
+    depends_on:
+      - backend
+    networks:
+      - news_network
+
+  # Frontend (for development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: news_aggregator_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    networks:
+      - news_network
+
+volumes:
+  db_data:
+  meilisearch_data:
+
+networks:
+  news_network:
+    driver: bridge
