@@ -129,14 +129,10 @@ docker-compose up -d --build
 # Backend tests
 cd backend
 php artisan test
-# OR
-docker exec news_aggregator_backend php artisan test
 
 # Frontend tests
 cd frontend
 npm test
-# OR
-docker exec news_aggregator_frontend npm test
 ```
 
 ## Configuration

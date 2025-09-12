@@ -4,7 +4,6 @@ import { articlesApi } from '../services/api'
 // ArticleCard is used by ArticleGrid
 import '../components/ArticleCard'
 import LoadingState from '../components/LoadingState'
-import ErrorState from '../components/ErrorState'
 import ArticlesLoadingState from '../components/ArticlesLoadingState'
 import ArticleGrid from '../components/ArticleGrid'
 
