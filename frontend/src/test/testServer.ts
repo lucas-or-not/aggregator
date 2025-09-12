@@ -42,6 +42,19 @@ export const handlers = [
       to: 1,
     })
   }),
+  http.get(`${API}/articles/saved`, () => {
+    return HttpResponse.json({
+      data: [
+        { id: 2, title: 'Saved One', slug: 'saved-one', content: '', url: '#', published_at: '2025-01-02', scraped_at: '2025-01-02', language: 'en', source: { id:1, name:'NewsAPI', api_slug:'newsapi' }, is_saved: true },
+      ],
+      current_page: 1,
+      last_page: 1,
+      per_page: 24,
+      total: 1,
+      from: 1,
+      to: 1,
+    })
+  }),
   http.get(`${API}/articles/:id`, ({ params }) => {
     return HttpResponse.json({ success: true, data: {
       article: { id: Number(params.id), title: 'A', slug: 'a', content: '', url: '#', published_at: '2025-01-01', scraped_at: '2025-01-01', language: 'en', source: { id:1, name:'NewsAPI', api_slug:'newsapi' } },
@@ -50,6 +63,26 @@ export const handlers = [
   }),
   http.post(`${API}/articles/:id/save`, () => HttpResponse.json({ success: true })),
   http.delete(`${API}/articles/:id/save`, () => HttpResponse.json({ success: true })),
+  http.get(`${API}/user/preferences`, () => {
+    return HttpResponse.json({
+      id: 1,
+      user_id: 1,
+      preferred_sources: [],
+      preferred_categories: [],
+      preferred_authors: [],
+      created_at: '2025-01-01',
+      updated_at: '2025-01-01',
+    })
+  }),
+  http.put(`${API}/user/preferences`, async () => HttpResponse.json({
+    id: 1,
+    user_id: 1,
+    preferred_sources: [],
+    preferred_categories: [],
+    preferred_authors: [],
+    created_at: '2025-01-01',
+    updated_at: '2025-01-01',
+  })),
 ]
 
 export const server = setupServer(...handlers)
