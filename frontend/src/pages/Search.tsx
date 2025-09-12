@@ -101,12 +101,6 @@ const Search: React.FC = () => {
           )}
         </>
       )}
-
-      {!query && !isLoading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Enter a search term to find articles.</p>
-        </div>
-      )}
     </div>
   )
 }
