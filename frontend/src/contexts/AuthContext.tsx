@@ -33,12 +33,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('auth_token')
+      const cached = localStorage.getItem('auth_user')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as User
+          setUser(parsed)
+        } catch (_ignored) {}
+      }
       if (token) {
         try {
-          const user = await authApi.getUser()
-          setUser(user)
+          const fresh = await authApi.getUser()
+          setUser(fresh)
+          localStorage.setItem('auth_user', JSON.stringify(fresh))
         } catch (error) {
           localStorage.removeItem('auth_token')
+          localStorage.removeItem('auth_user')
+          setUser(null)
         }
       }
       setLoading(false)
@@ -52,6 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { user, token } = response as AuthResponse
     localStorage.setItem('auth_token', token)
     setUser(user)
+    localStorage.setItem('auth_user', JSON.stringify(user))
   }
 
   const register = async (name: string, email: string, password: string, passwordConfirmation: string) => {
@@ -59,6 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { user, token } = response as AuthResponse
     localStorage.setItem('auth_token', token)
     setUser(user)
+    localStorage.setItem('auth_user', JSON.stringify(user))
   }
 
   const logout = async () => {
@@ -68,6 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Ignore logout API errors; proceed to clear client state
     } finally {
       localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
       setUser(null)
       // Always redirect to homepage after logging out
       if (typeof window !== 'undefined') {

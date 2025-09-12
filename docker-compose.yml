@@ -50,6 +50,8 @@ services:
       dockerfile: Dockerfile
     container_name: news_aggregator_backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     volumes:
       - ./backend/app:/var/www/html/app
       - ./backend/config:/var/www/html/config

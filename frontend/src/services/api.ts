@@ -25,7 +25,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token')
+      const url: string = error.config?.url || ''
+      // Only clear auth when the user validation endpoint fails
+      if (url.endsWith('/user')) {
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('auth_user')
+      }
     }
     return Promise.reject(error)
   }
