@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit\Actions;
+namespace Tests\Unit\Actions\Auth;
 
 use App\Actions\Auth\LoginUser;
 use App\Repositories\Contracts\UserRepositoryInterface;
