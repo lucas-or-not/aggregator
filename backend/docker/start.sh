@@ -26,6 +26,9 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+echo "Optimizing autoloader..."
+composer dump-autoload --optimize
+
 # Fetch initial articles
 echo "Fetching initial articles..."
 php artisan fetch:articles
