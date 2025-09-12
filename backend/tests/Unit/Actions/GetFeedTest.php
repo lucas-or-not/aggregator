@@ -67,7 +67,7 @@ class GetFeedTest extends TestCase
         $this->userPreferenceRepository
             ->shouldReceive('getPersonalizedFeed')
             ->once()
-            ->with($userId, $page, $perPage)
+            ->with($userId, $perPage)
             ->andReturn($paginatedFeed);
 
         // Act
@@ -112,7 +112,7 @@ class GetFeedTest extends TestCase
         $this->userPreferenceRepository
             ->shouldReceive('getPersonalizedFeed')
             ->once()
-            ->with($userId, $page, $perPage)
+            ->with($userId, $perPage)
             ->andReturn($paginatedFeed);
 
         // Act

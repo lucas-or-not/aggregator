@@ -16,11 +16,19 @@ php artisan migrate --force
 echo "Running seeders..."
 php artisan db:seed --force
 
+# Sync MeiliSearch index settings
+echo "Syncing search index settings..."
+php artisan scout:sync-index-settings
+
 # Clear and cache config
 echo "Optimizing application..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
+
+# Fetch initial articles
+echo "Fetching initial articles..."
+php artisan fetch:articles
 
 # Start supervisor
 echo "Starting services..."

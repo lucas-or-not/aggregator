@@ -5,6 +5,7 @@ import { articlesApi } from '../services/api'
 import '../components/ArticleCard'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import ArticlesLoadingState from '../components/ArticlesLoadingState'
 import FiltersBar from '../components/FiltersBar'
 import type { PaginatedResponse, Article } from '../types'
 import { DEFAULT_PAGE_SIZE } from '../config'
@@ -74,7 +75,7 @@ const Search: React.FC = () => {
 
       {isLoading && <LoadingState variant="grid" />}
 
-      {error && <ErrorState message="Error searching articles. Please try again." />}
+      {error && <ArticlesLoadingState onRefresh={() => window.location.reload()} />}
 
       {articles && !isLoading && (
         <>

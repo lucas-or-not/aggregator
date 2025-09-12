@@ -12,4 +12,17 @@ class SourceRepository implements SourceRepositoryInterface
     {
         return Source::where('is_active', true)->get();
     }
+
+    public function findById(int $id): ?Source
+    {
+        return Source::find($id);
+    }
+
+    public function findOrCreateByApiSlug(string $apiSlug, array $data): Source
+    {
+        return Source::firstOrCreate(
+            ['api_slug' => $apiSlug],
+            $data
+        );
+    }
 }

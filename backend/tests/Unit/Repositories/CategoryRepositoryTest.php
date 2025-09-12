@@ -45,4 +45,36 @@ class CategoryRepositoryTest extends TestCase
         $this->assertCount(0, $result);
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Collection::class, $result);
     }
+
+    public function test_find_or_create_by_slug_creates_new_category()
+    {
+        // Act
+        $category = $this->repository->findOrCreateBySlug('technology', 'Technology');
+
+        // Assert
+        $this->assertInstanceOf(Category::class, $category);
+        $this->assertEquals('technology', $category->slug);
+        $this->assertEquals('Technology', $category->name);
+        $this->assertDatabaseHas('categories', [
+            'slug' => 'technology',
+            'name' => 'Technology'
+        ]);
+    }
+
+    public function test_find_or_create_by_slug_finds_existing_category()
+    {
+        // Arrange
+        $existingCategory = Category::factory()->create([
+            'slug' => 'technology',
+            'name' => 'Technology'
+        ]);
+
+        // Act
+        $category = $this->repository->findOrCreateBySlug('technology', 'Tech');
+
+        // Assert
+        $this->assertEquals($existingCategory->id, $category->id);
+        $this->assertEquals('Technology', $category->name); // Should keep original name
+        $this->assertDatabaseCount('categories', 1);
+    }
 }

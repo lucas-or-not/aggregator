@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Models\Article;
-use App\Models\Author;
-use App\Models\Category;
-use App\Models\Source;
+use App\Repositories\Contracts\ArticleRepositoryInterface;
+use App\Repositories\Contracts\AuthorRepositoryInterface;
+use App\Repositories\Contracts\CategoryRepositoryInterface;
+use App\Repositories\Contracts\SourceRepositoryInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -16,17 +16,15 @@ class ProcessArticleJob implements ShouldQueue
 {
     use Queueable;
 
-    protected array $articleData;
-
-    protected int $sourceId;
-
-    /**
-     * Create a new job instance.
-     */
-    public function __construct(array $articleData, int $sourceId)
-    {
-        $this->articleData = $articleData;
-        $this->sourceId = $sourceId;
+    public function __construct(
+        private array $articleData,
+        private int $sourceId,
+        private ?ArticleRepositoryInterface $articleRepository = null,
+        private ?AuthorRepositoryInterface $authorRepository = null,
+        private ?CategoryRepositoryInterface $categoryRepository = null,
+        private ?SourceRepositoryInterface $sourceRepository = null
+    ) {
+        $this->onQueue('process-articles');
     }
 
     /**
@@ -34,14 +32,22 @@ class ProcessArticleJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Resolve repositories from container if not injected
+        $this->articleRepository ??= app(ArticleRepositoryInterface::class);
+        $this->authorRepository ??= app(AuthorRepositoryInterface::class);
+        $this->categoryRepository ??= app(CategoryRepositoryInterface::class);
+        $this->sourceRepository ??= app(SourceRepositoryInterface::class);
+
         try {
             DB::transaction(function () {
                 $this->processArticle();
             });
         } catch (\Exception $e) {
-            Log::error("Failed to process article: {$e->getMessage()}", [
+            Log::error('Failed to process article', [
                 'article_data' => $this->articleData,
                 'source_id' => $this->sourceId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
@@ -49,60 +55,60 @@ class ProcessArticleJob implements ShouldQueue
 
     protected function processArticle(): void
     {
-        $source = Source::findOrFail($this->sourceId);
-
         // Check if article already exists
-        $existingArticle = Article::where('source_id', $this->sourceId)
-            ->where('source_article_id', $this->articleData['source_article_id'])
-            ->first();
+        $existingArticle = $this->articleRepository->findBySourceAndSourceArticleId(
+            $this->sourceId,
+            $this->articleData['source_article_id']
+        );
 
         if ($existingArticle) {
             Log::info('Article already exists, skipping', [
-                'source_id' => $this->sourceId,
                 'source_article_id' => $this->articleData['source_article_id'],
+                'source_id' => $this->sourceId
             ]);
-
             return;
         }
 
-        // Find or create author
+        // Get or create author
         $author = null;
-        if (! empty($this->articleData['author'])) {
-            $author = Author::firstOrCreate(
-                ['canonical_name' => Str::slug($this->articleData['author'])],
-                ['name' => $this->articleData['author']]
+        if (!empty($this->articleData['author'])) {
+            $canonicalName = Str::slug($this->articleData['author']);
+            $author = $this->authorRepository->findOrCreateByCanonicalName(
+                $canonicalName,
+                $this->articleData['author']
             );
         }
 
-        // Find or create category
+        // Get or create category
         $category = null;
-        if (! empty($this->articleData['category'])) {
-            $category = Category::firstOrCreate(
-                ['slug' => Str::slug($this->articleData['category'])],
-                ['name' => $this->articleData['category']]
+        if (!empty($this->articleData['category'])) {
+            $slug = Str::slug($this->articleData['category']);
+            $category = $this->categoryRepository->findOrCreateBySlug(
+                $slug,
+                $this->articleData['category']
             );
         }
 
-        // Create article
-        $article = Article::create([
-            'source_id' => $this->sourceId,
-            'source_article_id' => $this->articleData['source_article_id'],
+        // Create the article
+        $article = $this->articleRepository->create([
             'title' => $this->articleData['title'],
             'slug' => Str::slug($this->articleData['title']),
             'excerpt' => $this->articleData['excerpt'],
             'content' => $this->sanitizeContent($this->articleData['content']),
             'url' => $this->articleData['url'],
             'image_url' => $this->articleData['image_url'],
+            'published_at' => $this->articleData['published_at'],
+            'source_id' => $this->sourceId,
+            'source_article_id' => $this->articleData['source_article_id'],
             'author_id' => $author?->id,
             'category_id' => $category?->id,
-            'published_at' => $this->articleData['published_at'],
             'scraped_at' => now(),
-            'raw_payload' => $this->articleData['raw_payload'],
+            'raw_payload' => $this->articleData['raw_payload']
         ]);
 
         Log::info('Article processed successfully', [
             'article_id' => $article->id,
-            'title' => $article->title,
+            'title' => $article->title
         ]);
     }
 

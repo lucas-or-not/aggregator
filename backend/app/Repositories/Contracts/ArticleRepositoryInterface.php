@@ -37,4 +37,14 @@ interface ArticleRepositoryInterface
      * Unsave an article for a user
      */
     public function unsaveArticleForUser(int $articleId, int $userId): void;
+
+    /**
+     * Find existing article by source and source article ID
+     */
+    public function findBySourceAndSourceArticleId(int $sourceId, string $sourceArticleId): ?Article;
+
+    /**
+     * Create a new article
+     */
+    public function create(array $data): Article;
 }

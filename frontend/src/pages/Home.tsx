@@ -5,17 +5,51 @@ import { articlesApi, preferencesApi } from '../services/api'
 import '../components/ArticleCard.tsx'
 import Pagination from '../components/Pagination'
 import ArticleGrid from '../components/ArticleGrid'
-import ErrorState from '../components/ErrorState'
 import LoadingState from '../components/LoadingState'
+import ArticlesLoadingState from '../components/ArticlesLoadingState'
 import type { PaginatedResponse, Article } from '../types'
 import { DEFAULT_PAGE_SIZE } from '../config'
 import { CATEGORY_PRESETS } from '../constants'
+import { useNavigate } from 'react-router-dom'
 
 const Home: React.FC = () => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [page, setPage] = useState(1)
   const perPage = DEFAULT_PAGE_SIZE
+
+  // Fetch user preferences to check if they're empty
+  const { data: userPreferences } = useQuery({
+    queryKey: ['user-preferences'],
+    queryFn: () => preferencesApi.getPreferences(),
+    enabled: !!user,
+  })
+
+  // Check if user has empty preferences (all arrays are empty)
+  const hasEmptyPreferences = user && userPreferences && 
+    (!userPreferences.preferred_sources?.length && 
+     !userPreferences.preferred_categories?.length && 
+     !userPreferences.preferred_authors?.length)
+
+  const getEmptyMessage = () => {
+    if (user && hasEmptyPreferences) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-gray-600 mb-4">
+            No articles found. Set up your preferences to get personalized content!
+          </p>
+          <button
+            onClick={() => navigate('/preferences')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+          >
+            Set Up Preferences
+          </button>
+        </div>
+      )
+    }
+    return "Articles are being aggregated and will appear soon. If the server was just started, please refresh the page in a few moments."
+  }
 
   // Use personalized feed if user is logged in, otherwise use search endpoint with filters
   const { data: articles, isLoading, error } = useQuery<PaginatedResponse<Article>>({
@@ -39,7 +73,7 @@ const Home: React.FC = () => {
   // Skeletons during loading
   if (isLoading) return <LoadingState variant="home" />
 
-  if (error) return <ErrorState message="Error loading articles. Please try again later." />
+  if (error) return <ArticlesLoadingState onRefresh={() => window.location.reload()} />
 
   const categoryButtons = CATEGORY_PRESETS
 
@@ -85,7 +119,10 @@ const Home: React.FC = () => {
         )}
 
         {/* Articles Grid */}
-        <ArticleGrid articles={articles?.data || []} />
+        <ArticleGrid 
+          articles={articles?.data || []} 
+          emptyMessage={getEmptyMessage()}
+        />
 
         {/* Pagination Controls */}
         {articles?.data && articles.total > 0 && (

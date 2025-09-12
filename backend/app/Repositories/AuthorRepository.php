@@ -12,4 +12,12 @@ class AuthorRepository implements AuthorRepositoryInterface
     {
         return Author::orderBy('name')->get();
     }
+
+    public function findOrCreateByCanonicalName(string $canonicalName, string $name): Author
+    {
+        return Author::firstOrCreate(
+            ['canonical_name' => $canonicalName],
+            ['name' => $name]
+        );
+    }
 }

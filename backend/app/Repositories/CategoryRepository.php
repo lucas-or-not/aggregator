@@ -12,4 +12,12 @@ class CategoryRepository implements CategoryRepositoryInterface
     {
         return Category::orderBy('name')->get();
     }
+
+    public function findOrCreateBySlug(string $slug, string $name): Category
+    {
+        return Category::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => $name]
+        );
+    }
 }

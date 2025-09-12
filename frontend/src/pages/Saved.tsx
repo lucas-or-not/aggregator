@@ -5,6 +5,7 @@ import { articlesApi } from '../services/api'
 import '../components/ArticleCard'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import ArticlesLoadingState from '../components/ArticlesLoadingState'
 import ArticleGrid from '../components/ArticleGrid'
 
 const Saved: React.FC = () => {
@@ -15,7 +16,7 @@ const Saved: React.FC = () => {
 
   if (isLoading) return <LoadingState message="Loading saved articles..." />
 
-  if (error) return <ErrorState message="Error loading saved articles. Please try again later." />
+  if (error) return <ArticlesLoadingState onRefresh={() => window.location.reload()} />
 
   return (
     <div className="px-4 sm:px-0">

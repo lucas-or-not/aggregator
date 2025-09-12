@@ -4,14 +4,18 @@ import ArticleCard from './ArticleCard.tsx'
 
 interface ArticleGridProps {
   articles: Article[]
-  emptyMessage?: string
+  emptyMessage?: string | React.ReactNode
 }
 
 const ArticleGrid: React.FC<ArticleGridProps> = ({ articles, emptyMessage = 'No articles found.' }) => {
   if (!articles || articles.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{emptyMessage}</p>
+        {typeof emptyMessage === 'string' ? (
+          <p className="text-gray-500">{emptyMessage}</p>
+        ) : (
+          emptyMessage
+        )}
       </div>
     )
   }

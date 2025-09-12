@@ -45,4 +45,36 @@ class AuthorRepositoryTest extends TestCase
         $this->assertCount(0, $result);
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Collection::class, $result);
     }
+
+    public function test_find_or_create_by_canonical_name_creates_new_author()
+    {
+        // Act
+        $author = $this->repository->findOrCreateByCanonicalName('john-doe', 'John Doe');
+
+        // Assert
+        $this->assertInstanceOf(\App\Models\Author::class, $author);
+        $this->assertEquals('john-doe', $author->canonical_name);
+        $this->assertEquals('John Doe', $author->name);
+        $this->assertDatabaseHas('authors', [
+            'canonical_name' => 'john-doe',
+            'name' => 'John Doe'
+        ]);
+    }
+
+    public function test_find_or_create_by_canonical_name_finds_existing_author()
+    {
+        // Arrange
+        $existingAuthor = \App\Models\Author::factory()->create([
+            'canonical_name' => 'john-doe',
+            'name' => 'John Doe'
+        ]);
+
+        // Act
+        $author = $this->repository->findOrCreateByCanonicalName('john-doe', 'Johnny Doe');
+
+        // Assert
+        $this->assertEquals($existingAuthor->id, $author->id);
+        $this->assertEquals('John Doe', $author->name); // Should keep original name
+        $this->assertDatabaseCount('authors', 1);
+    }
 }

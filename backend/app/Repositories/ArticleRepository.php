@@ -123,4 +123,16 @@ class ArticleRepository implements ArticleRepositoryInterface
         $user = \App\Models\User::findOrFail($userId);
         $user->savedArticles()->detach($articleId);
     }
+
+    public function findBySourceAndSourceArticleId(int $sourceId, string $sourceArticleId): ?Article
+    {
+        return Article::where('source_id', $sourceId)
+            ->where('source_article_id', $sourceArticleId)
+            ->first();
+    }
+
+    public function create(array $data): Article
+    {
+        return Article::create($data);
+    }
 }

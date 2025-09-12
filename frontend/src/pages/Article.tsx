@@ -37,8 +37,13 @@ const Article: React.FC = () => {
         onSuccess: () => {
           showToast('success', 'Article Saved', 'Article has been added to your saved list.')
         },
-        onError: () => {
-          showToast('error', 'Save Failed', 'Failed to save the article. Please try again.')
+        onError: (error: any) => {
+          const errorMessage = error?.response?.data?.message
+          if (errorMessage === 'Article already saved') {
+            showToast('info', 'Already Saved', 'This article is already in your saved list.')
+          } else {
+            showToast('error', 'Save Failed', 'Failed to save the article. Please try again.')
+          }
         },
       })
     }

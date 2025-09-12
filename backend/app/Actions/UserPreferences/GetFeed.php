@@ -24,6 +24,6 @@ class GetFeed
         $page = $request->get('page', 1);
         $perPage = $request->get('per_page', 10);
 
-        return $this->userPreferenceRepository->getPersonalizedFeed($userId, $page, $perPage);
+        return $this->userPreferenceRepository->getPersonalizedFeed($userId, $perPage);
     }
 }

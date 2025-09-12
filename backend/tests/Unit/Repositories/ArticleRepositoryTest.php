@@ -146,4 +146,62 @@ class ArticleRepositoryTest extends TestCase
         // Assert
         $this->assertFalse($user->savedArticles()->where('article_id', $article->id)->exists());
     }
+
+    public function test_find_by_source_and_source_article_id_finds_existing_article()
+    {
+        // Arrange
+        $source = \App\Models\Source::factory()->create();
+        $article = Article::factory()->create([
+            'source_id' => $source->id,
+            'source_article_id' => 'test-123'
+        ]);
+
+        // Act
+        $result = $this->repository->findBySourceAndSourceArticleId($source->id, 'test-123');
+
+        // Assert
+        $this->assertNotNull($result);
+        $this->assertEquals($article->id, $result->id);
+    }
+
+    public function test_find_by_source_and_source_article_id_returns_null_when_not_found()
+    {
+        // Arrange
+        $source = \App\Models\Source::factory()->create();
+
+        // Act
+        $result = $this->repository->findBySourceAndSourceArticleId($source->id, 'nonexistent');
+
+        // Assert
+        $this->assertNull($result);
+    }
+
+    public function test_create_creates_new_article()
+    {
+        // Arrange
+        $source = \App\Models\Source::factory()->create();
+        $articleData = [
+            'title' => 'Test Article',
+            'slug' => 'test-article',
+            'content' => 'Test content',
+            'url' => 'https://example.com/test',
+            'source_id' => $source->id,
+            'source_article_id' => 'test-456',
+            'published_at' => now(),
+            'scraped_at' => now(),
+        ];
+
+        // Act
+        $article = $this->repository->create($articleData);
+
+        // Assert
+        $this->assertInstanceOf(Article::class, $article);
+        $this->assertEquals('Test Article', $article->title);
+        $this->assertEquals($source->id, $article->source_id);
+        $this->assertDatabaseHas('articles', [
+            'title' => 'Test Article',
+            'source_id' => $source->id,
+            'source_article_id' => 'test-456'
+        ]);
+    }
 }

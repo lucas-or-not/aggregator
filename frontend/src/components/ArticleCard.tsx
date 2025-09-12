@@ -54,8 +54,15 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, forceSave
           setFeedback('Saved to your list')
           setTimeout(() => setFeedback(null), 1500)
         },
-        onError: () => {
-          showToast('error', 'Save Failed', 'Failed to save the article. Please try again.')
+        onError: (error: any) => {
+          const errorMessage = error?.response?.data?.message
+          if (errorMessage === 'Article already saved') {
+            showToast('info', 'Already Saved', 'This article is already in your saved list.')
+            setFeedback('Already saved')
+            setTimeout(() => setFeedback(null), 1500)
+          } else {
+            showToast('error', 'Save Failed', 'Failed to save the article. Please try again.')
+          }
         },
       })
     }
