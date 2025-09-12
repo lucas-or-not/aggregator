@@ -106,7 +106,6 @@ class GetAuthorsTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        // Mock the Log facade
         Log::shouldReceive('error')
             ->once()
             ->with('Failed to get authors', [

@@ -18,7 +18,6 @@ class FetchSourceArticlesJobTest extends TestCase
     {
         Queue::fake();
 
-        // Create a test source
         $source = Source::factory()->create([
             'name' => 'Test Source',
             'api_slug' => 'test-source',

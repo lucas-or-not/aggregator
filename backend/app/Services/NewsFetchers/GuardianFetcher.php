@@ -81,7 +81,6 @@ class GuardianFetcher extends AbstractNewsFetcher
     {
         $body = $rawArticle['fields']['body'] ?? '';
         if ($body) {
-            // Extract first paragraph or first 200 characters
             $stripped = strip_tags($body);
 
             return strlen($stripped) > 200 ? substr($stripped, 0, 200).'...' : $stripped;
@@ -118,7 +117,6 @@ class GuardianFetcher extends AbstractNewsFetcher
     {
         $section = $rawArticle['_section'] ?? $rawArticle['sectionName'] ?? $this->config['section'] ?? 'general';
 
-        // Create or get category
         $category = Category::firstOrCreate(
             ['slug' => strtolower($section)],
             ['name' => ucfirst($section)]

@@ -19,9 +19,7 @@ class NewsAPIFetcher extends AbstractNewsFetcher
         $language = $this->config['language'] ?? 'en';
         $query = $this->config['q'] ?? 'news OR technology OR science';
 
-        // Use top-headlines if a category is specified (per NewsAPI docs)
-        // Otherwise default to the everything endpoint with a broad query
-        // Docs: https://newsapi.org/
+       
         $articles = [];
 
         // 1) Top headlines when category present
@@ -39,8 +37,6 @@ class NewsAPIFetcher extends AbstractNewsFetcher
             }
         }
 
-        // 2) Everything endpoint for broader coverage
-        // Compute date window for `everything` endpoint (supports from/to)
         $days = (int) ($this->config['days'] ?? 30);
         $fromDate = now()->subDays(max(1, $days))->toDateString();
         $toDate = now()->toDateString();
@@ -109,18 +105,15 @@ class NewsAPIFetcher extends AbstractNewsFetcher
 
     protected function extractAuthor(array $rawArticle): ?string
     {
-        // Prefer author; fallback to source name for byline consistency
         return $rawArticle['author'] ?? ($rawArticle['source']['name'] ?? null);
     }
 
     protected function extractCategory(array $rawArticle): ?string
     {
-        // If a specific category is configured, use it
         if (isset($this->config['category'])) {
             return $this->config['category'];
         }
 
-        // Create a default "General" category for NewsAPI articles
         $category = \App\Models\Category::firstOrCreate(
             ['slug' => 'general'],
             ['name' => 'General']

@@ -18,11 +18,9 @@ class NewsFetcherFactory
     {
         $slug = $source->api_slug;
 
-        // Check for exact match first
         if (isset(self::$fetchers[$slug])) {
             $fetcherClass = self::$fetchers[$slug];
         } else {
-            // Check for prefix matches for category-specific sources
             $fetcherClass = null;
             foreach (self::$fetchers as $pattern => $class) {
                 if (str_starts_with($slug, $pattern)) {

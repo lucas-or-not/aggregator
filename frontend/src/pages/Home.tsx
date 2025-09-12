@@ -26,7 +26,6 @@ const Home: React.FC = () => {
     enabled: !!user,
   })
 
-  // Check if user has empty preferences (all arrays are empty)
   const hasEmptyPreferences = user && userPreferences && 
     (!userPreferences.preferred_sources?.length && 
      !userPreferences.preferred_categories?.length && 

@@ -17,7 +17,6 @@ class FetchArticlesCommandTest extends TestCase
     {
         Queue::fake();
 
-        // Create test sources
         $activeSource1 = Source::factory()->create(['is_active' => true, 'name' => 'Active Source 1']);
         $activeSource2 = Source::factory()->create(['is_active' => true, 'name' => 'Active Source 2']);
         $inactiveSource = Source::factory()->create(['is_active' => false, 'name' => 'Inactive Source']);
@@ -44,7 +43,6 @@ class FetchArticlesCommandTest extends TestCase
     {
         Queue::fake();
 
-        // Create only inactive sources
         Source::factory()->create(['is_active' => false]);
 
         $this->artisan('fetch:articles')

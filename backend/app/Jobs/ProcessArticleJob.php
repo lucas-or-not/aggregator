@@ -55,7 +55,6 @@ class ProcessArticleJob implements ShouldQueue
 
     protected function processArticle(): void
     {
-        // Check if article already exists
         $existingArticle = $this->articleRepository->findBySourceAndSourceArticleId(
             $this->sourceId,
             $this->articleData['source_article_id']
@@ -69,7 +68,6 @@ class ProcessArticleJob implements ShouldQueue
             return;
         }
 
-        // Get or create author
         $author = null;
         if (!empty($this->articleData['author'])) {
             $canonicalName = Str::slug($this->articleData['author']);
@@ -79,7 +77,6 @@ class ProcessArticleJob implements ShouldQueue
             );
         }
 
-        // Get or create category
         $category = null;
         if (!empty($this->articleData['category'])) {
             $slug = Str::slug($this->articleData['category']);
@@ -89,7 +86,6 @@ class ProcessArticleJob implements ShouldQueue
             );
         }
 
-        // Create the article
         $article = $this->articleRepository->create([
             'title' => $this->articleData['title'],
             'slug' => Str::slug($this->articleData['title']),

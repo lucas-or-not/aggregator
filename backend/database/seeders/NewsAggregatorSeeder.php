@@ -18,7 +18,6 @@ class NewsAggregatorSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create categories
         $categories = [
             'Technology',
             'Business',
@@ -37,7 +36,6 @@ class NewsAggregatorSeeder extends Seeder
             );
         }
 
-        // Create news sources for multiple categories
         $categories = ['technology', 'business', 'science', 'sports', 'entertainment'];
 
         // NewsAPI - supports multiple categories

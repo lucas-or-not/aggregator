@@ -22,7 +22,6 @@ class ShowArticle
                 throw new Exception('Article not found');
             }
 
-            // Check if user has saved this article
             $isSaved = false;
             $user = $request->user();
             if ($user) {

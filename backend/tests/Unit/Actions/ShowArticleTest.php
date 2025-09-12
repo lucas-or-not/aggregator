@@ -125,7 +125,6 @@ class ShowArticleTest extends TestCase
             ->once()
             ->andReturn(null);
 
-        // user() should not be called when article is not found
         $this->request
             ->shouldReceive('user')
             ->never();
@@ -151,7 +150,6 @@ class ShowArticleTest extends TestCase
             ->once()
             ->andThrow(new Exception('Database connection failed'));
 
-        // user() should not be called when repository throws exception
         $this->request
             ->shouldReceive('user')
             ->never();
@@ -178,12 +176,10 @@ class ShowArticleTest extends TestCase
             ->once()
             ->andThrow($exception);
 
-        // user() should not be called when repository throws exception
         $this->request
             ->shouldReceive('user')
             ->never();
 
-        // Mock the Log facade
         \Log::shouldReceive('error')
             ->once()
             ->with('Failed to show article', [

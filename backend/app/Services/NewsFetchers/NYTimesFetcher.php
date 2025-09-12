@@ -131,7 +131,6 @@ class NYTimesFetcher extends AbstractNewsFetcher
     protected function extractAuthor(array $rawArticle): ?string
     {
         if (isset($rawArticle['byline']) && ! empty($rawArticle['byline'])) {
-            // Remove "By " prefix if present
             return preg_replace('/^By\s+/i', '', $rawArticle['byline']);
         }
 
@@ -140,11 +139,9 @@ class NYTimesFetcher extends AbstractNewsFetcher
 
     protected function extractCategory(array $rawArticle): ?string
     {
-        // Use section from the article data or tagged section
         $section = $rawArticle['section'] ?? $rawArticle['_section'] ?? null;
 
         if ($section) {
-            // Create category dynamically
             $category = \App\Models\Category::firstOrCreate(
                 ['slug' => strtolower($section)],
                 ['name' => ucfirst($section)]
@@ -173,18 +170,15 @@ class NYTimesFetcher extends AbstractNewsFetcher
 
     protected function extractImageUrl(array $rawArticle): ?string
     {
-        // NY Times uses multimedia array for images
         if (isset($rawArticle['multimedia']) && is_array($rawArticle['multimedia'])) {
             foreach ($rawArticle['multimedia'] as $media) {
                 if (isset($media['url']) && isset($media['format'])) {
-                    // Prefer larger formats
                     if (in_array($media['format'], ['superJumbo', 'jumbo', 'articleLarge', 'Normal'])) {
                         return $media['url'];
                     }
                 }
             }
 
-            // Fallback to first available image
             if (! empty($rawArticle['multimedia'][0]['url'])) {
                 return $rawArticle['multimedia'][0]['url'];
             }
