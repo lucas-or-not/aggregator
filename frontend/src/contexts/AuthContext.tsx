@@ -9,7 +9,7 @@ interface AuthContextType {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string, passwordConfirmation: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -61,10 +61,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(user)
   }
 
-  const logout = () => {
-    localStorage.removeItem('auth_token')
-    setUser(null)
-    authApi.logout().catch(() => {}) // Don't wait for logout API call
+  const logout = async () => {
+    try {
+      await authApi.logout()
+    } catch (_) {
+      // Ignore logout API errors; proceed to clear client state
+    } finally {
+      localStorage.removeItem('auth_token')
+      setUser(null)
+      // Always redirect to homepage after logging out
+      if (typeof window !== 'undefined') {
+        window.location.assign('/')
+      }
+    }
   }
 
   const value = {
