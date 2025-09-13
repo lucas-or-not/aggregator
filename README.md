@@ -125,9 +125,12 @@ docker-compose up -d --build
 
 ### Running Tests
 
+**Important**: Tests should be run locally, not within Docker containers, as the test database is in-memory and doesn't behave well within Docker.
+
 ```bash
-# Backend tests
+# Backend tests (run locally)
 cd backend
+composer install  # Required before running tests
 php artisan test
 
 # Frontend tests
