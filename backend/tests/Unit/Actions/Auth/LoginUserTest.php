@@ -52,9 +52,9 @@ class LoginUserTest extends TestCase
 
         $result = $this->loginUser->execute($request);
 
-        $this->assertTrue($result['success']);
-        $this->assertEquals('test-token', $result['token']);
-        $this->assertEquals($mockUser, $result['user']);
+        $this->assertTrue(str_contains($result['message'], 'User logged in successfully'));
+        $this->assertEquals('test-token', $result['data']['token']);
+        $this->assertEquals($mockUser, $result['data']['user']);
     }
 
     public function test_login_with_invalid_credentials()

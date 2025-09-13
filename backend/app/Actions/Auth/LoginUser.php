@@ -36,9 +36,11 @@ class LoginUser
             $token = $this->userRepository->createToken($user);
 
             return [
-                'success' => true,
-                'token' => $token,
-                'user' => $user,
+                'data' => [
+                    'user' => $user,
+                    'token' => $token,
+                ],
+                'message' => 'User logged in successfully',
             ];
         } catch (ValidationException $e) {
             throw $e;
