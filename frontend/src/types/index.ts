@@ -52,8 +52,11 @@ export interface UserPreferences {
 }
 
 export interface AuthResponse {
-  user: User
-  token: string
+  data: {
+    user: User
+    token: string
+  }
+  message: string
 }
 
 export interface PaginatedResponse<T> {

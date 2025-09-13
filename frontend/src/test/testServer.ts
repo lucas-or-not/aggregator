@@ -8,10 +8,22 @@ export const handlers = [
     return HttpResponse.json({ id: 1, name: 'Test User', email: 'test@example.com', created_at: '2025-01-01', updated_at: '2025-01-01' })
   }),
   http.post(`${API}/login`, async () => {
-    return HttpResponse.json({ user: { id: 1, name: 'Test User', email: 'test@example.com', created_at: '2025-01-01', updated_at: '2025-01-01' }, token: 'token123' })
+    return HttpResponse.json({ 
+      data: { 
+        user: { id: 1, name: 'Test User', email: 'test@example.com', created_at: '2025-01-01', updated_at: '2025-01-01' }, 
+        token: 'token123' 
+      },
+      message: 'Login successful'
+    })
   }),
   http.post(`${API}/register`, async () => {
-    return HttpResponse.json({ user: { id: 2, name: 'New User', email: 'new@example.com', created_at: '2025-01-01', updated_at: '2025-01-01' }, token: 'token456' })
+    return HttpResponse.json({ 
+      data: { 
+        user: { id: 2, name: 'New User', email: 'new@example.com', created_at: '2025-01-01', updated_at: '2025-01-01' }, 
+        token: 'token456' 
+      },
+      message: 'Registration successful'
+    })
   }),
   http.post(`${API}/logout`, async () => HttpResponse.json({ success: true })),
   http.get(`${API}/sources`, () => {
