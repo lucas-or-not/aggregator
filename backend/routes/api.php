@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\GetAuthorsController;
 use App\Http\Controllers\Api\GetCategoriesController;
 use App\Http\Controllers\Api\GetFeedController;
+use App\Http\Controllers\Api\GetFilteredMetadataController;
 use App\Http\Controllers\Api\GetPreferencesController;
 use App\Http\Controllers\Api\GetSavedArticlesController;
 use App\Http\Controllers\Api\GetSourcesController;
@@ -35,6 +36,7 @@ Route::post('/login', LoginController::class);
 Route::get('/sources', GetSourcesController::class);
 Route::get('/categories', GetCategoriesController::class);
 Route::get('/authors', GetAuthorsController::class);
+Route::get('/metadata/filtered', GetFilteredMetadataController::class);
 
 // Public article routes - accessible to guests
 Route::get('/articles/search', SearchArticlesController::class);

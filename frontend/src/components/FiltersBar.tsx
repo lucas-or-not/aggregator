@@ -21,6 +21,8 @@ interface FiltersBarProps {
   sourceOptions: OptionLike[]
   categoryOptions: OptionLike[]
   authorOptions: OptionLike[]
+  isLoadingCategories?: boolean
+  isLoadingAuthors?: boolean
 }
 
 const FiltersBar: React.FC<FiltersBarProps> = ({
@@ -31,7 +33,18 @@ const FiltersBar: React.FC<FiltersBarProps> = ({
   sourceOptions,
   categoryOptions,
   authorOptions,
+  isLoadingCategories = false,
+  isLoadingAuthors = false,
 }) => {
+  const getCategoryLabel = () => {
+    if (isLoadingCategories) return 'Loading Categories...'
+    return 'All Categories'
+  }
+
+  const getAuthorLabel = () => {
+    if (isLoadingAuthors) return 'Loading Authors...'
+    return 'All Authors'
+  }
   return (
     <div className="mb-8">
       <div className="mb-6">
@@ -56,19 +69,21 @@ const FiltersBar: React.FC<FiltersBarProps> = ({
         />
 
         <SearchableSelect
-          label="Category"
-          options={[{ value: '', label: 'All Categories' }, ...categoryOptions]}
+          label={`Category ${(filters.source || filters.author) ? `(${categoryOptions.length} available)` : ''}`}
+          options={[{ value: '', label: getCategoryLabel() }, ...categoryOptions]}
           value={filters.category}
           onChange={(value) => onFilterChange('category', value)}
-          placeholder="All Categories"
+          placeholder={getCategoryLabel()}
+          className={isLoadingCategories ? 'opacity-50' : ''}
         />
 
         <SearchableSelect
-          label="Author"
-          options={[{ value: '', label: 'All Authors' }, ...authorOptions]}
+          label={`Author ${(filters.source || filters.category) ? `(${authorOptions.length} available)` : ''}`}
+          options={[{ value: '', label: getAuthorLabel() }, ...authorOptions]}
           value={filters.author}
           onChange={(value) => onFilterChange('author', value)}
-          placeholder="All Authors"
+          placeholder={getAuthorLabel()}
+          className={isLoadingAuthors ? 'opacity-50' : ''}
         />
 
         <DateRangePicker

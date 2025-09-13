@@ -26,7 +26,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url: string = error.config?.url || ''
-      // Only clear auth when the user validation endpoint fails
+
       if (url.endsWith('/user')) {
         localStorage.removeItem('auth_token')
         localStorage.removeItem('auth_user')
@@ -108,6 +108,11 @@ export const categoriesApi = {
 export const authorsApi = {
   getAuthors: () =>
     get<{ success: boolean; data: Author[] }>('/authors').then((r) => r.data),
+}
+
+export const metadataApi = {
+  getFilteredMetadata: (params?: { q?: string; source?: string; category?: string; author?: string }) =>
+    get<{ success: boolean; data: { categories: Array<{ value: string; label: string; count: number }>; authors: Array<{ value: string; label: string; count: number }>; validation: { categoryExists: boolean; authorExists: boolean } } }>('/metadata/filtered', { params }).then((r) => r.data),
 }
 
 export const preferencesApi = {

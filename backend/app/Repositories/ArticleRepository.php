@@ -135,4 +135,153 @@ class ArticleRepository implements ArticleRepositoryInterface
     {
         return Article::create($data);
     }
+
+    public function getFilteredMetadata(?string $searchQuery = null, ?string $sourceSlug = null, ?string $categorySlug = null, ?string $authorName = null): array
+    {
+        $searchQuery = $searchQuery ?? '';
+        $filters = [];
+        
+        if ($sourceSlug) {
+            $filters[] = 'source_slug = "' . $sourceSlug . '"';
+        }
+        
+        if ($categorySlug) {
+            $filters[] = 'category_slug = "' . $categorySlug . '"';
+        }
+        
+        if ($authorName) {
+            $filters[] = 'author_name = "' . $authorName . '"';
+        }
+        
+        // Get all facets
+        $results = Article::search($searchQuery, function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
+            if (!empty($filters)) {
+                $options['filter'] = implode(' AND ', $filters);
+            }
+            
+            $options['facets'] = ['category_slug', 'category_name', 'author_name'];
+            $options['limit'] = 0; // We only want facets, not actual results
+            
+            return $meiliSearch->search($searchQuery, $options);
+        });
+        
+        $facetDistribution = $results->raw()['facetDistribution'] ?? [];
+        
+        return [
+            'categories' => $this->extractCategories($facetDistribution),
+            'authors' => $this->extractAuthors($facetDistribution),
+            'validation' => $this->validateFilters($searchQuery, $sourceSlug, $categorySlug, $authorName),
+        ];
+    }
+    
+    private function validateFilters(?string $searchQuery, ?string $sourceSlug, ?string $categorySlug, ?string $authorName): array
+    {
+        $validation = [
+            'categoryExists' => true,
+            'authorExists' => true,
+        ];
+        
+        // Check if category exists for current filters
+        if ($categorySlug && ($sourceSlug || $authorName)) {
+            $validation['categoryExists'] = $this->categoryExistsForFilters($searchQuery, $sourceSlug, $categorySlug, $authorName);
+        }
+        
+        // Check if author exists for current filters  
+        if ($authorName && ($sourceSlug || $categorySlug)) {
+            $validation['authorExists'] = $this->authorExistsForFilters($searchQuery, $sourceSlug, $categorySlug, $authorName);
+        }
+        
+        return $validation;
+    }
+    
+    private function categoryExistsForFilters(?string $searchQuery, ?string $sourceSlug, string $categorySlug, ?string $authorName): bool
+    {
+        $filters = ['category_slug = "' . $categorySlug . '"'];
+        
+        if ($sourceSlug) {
+            $filters[] = 'source_slug = "' . $sourceSlug . '"';
+        }
+        
+        if ($authorName) {
+            $filters[] = 'author_name = "' . $authorName . '"';
+        }
+        
+        $results = Article::search($searchQuery ?? '', function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
+            $options['filter'] = implode(' AND ', $filters);
+            $options['limit'] = 1;
+            return $meiliSearch->search($searchQuery, $options);
+        });
+        
+        return $results->get()->count() > 0;
+    }
+    
+    private function authorExistsForFilters(?string $searchQuery, ?string $sourceSlug, ?string $categorySlug, string $authorName): bool
+    {
+        $filters = ['author_name = "' . $authorName . '"'];
+        
+        if ($sourceSlug) {
+            $filters[] = 'source_slug = "' . $sourceSlug . '"';
+        }
+        
+        if ($categorySlug) {
+            $filters[] = 'category_slug = "' . $categorySlug . '"';
+        }
+        
+        $results = Article::search($searchQuery ?? '', function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
+            $options['filter'] = implode(' AND ', $filters);
+            $options['limit'] = 1;
+            return $meiliSearch->search($searchQuery, $options);
+        });
+        
+        return $results->get()->count() > 0;
+    }
+    
+    private function extractCategories(array $facetDistribution): array
+    {
+        $categories = [];
+        
+        if (isset($facetDistribution['category_slug'])) {
+            foreach ($facetDistribution['category_slug'] as $slug => $count) {
+                if ($count > 0 && $slug) {
+                    // Get category name from a sample article
+                    $sampleArticle = Article::search('', function ($meiliSearch, string $searchQuery, array $options) use ($slug) {
+                        $options['filter'] = 'category_slug = "' . $slug . '"';
+                        $options['limit'] = 1;
+                        return $meiliSearch->search($searchQuery, $options);
+                    })->first();
+                    
+                    if ($sampleArticle && $sampleArticle->category) {
+                        $categories[] = [
+                            'value' => $slug,
+                            'label' => $sampleArticle->category->name,
+                            'count' => $count,
+                        ];
+                    }
+                }
+            }
+        }
+        
+        usort($categories, fn($a, $b) => strcmp($a['label'], $b['label']));
+        return $categories;
+    }
+    
+    private function extractAuthors(array $facetDistribution): array
+    {
+        $authors = [];
+        
+        if (isset($facetDistribution['author_name'])) {
+            foreach ($facetDistribution['author_name'] as $name => $count) {
+                if ($count > 0 && $name) {
+                    $authors[] = [
+                        'value' => $name,
+                        'label' => $name,
+                        'count' => $count,
+                    ];
+                }
+            }
+        }
+        
+        usort($authors, fn($a, $b) => strcmp($a['label'], $b['label']));
+        return $authors;
+    }
 }

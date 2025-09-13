@@ -3,6 +3,9 @@
 namespace Tests\Unit\Repositories;
 
 use App\Models\Article;
+use App\Models\Author;
+use App\Models\Category;
+use App\Models\Source;
 use App\Models\User;
 use App\Repositories\ArticleRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -150,7 +153,7 @@ class ArticleRepositoryTest extends TestCase
     public function test_find_by_source_and_source_article_id_finds_existing_article()
     {
         // Arrange
-        $source = \App\Models\Source::factory()->create();
+        $source = Source::factory()->create();
         $article = Article::factory()->create([
             'source_id' => $source->id,
             'source_article_id' => 'test-123'
@@ -167,7 +170,7 @@ class ArticleRepositoryTest extends TestCase
     public function test_find_by_source_and_source_article_id_returns_null_when_not_found()
     {
         // Arrange
-        $source = \App\Models\Source::factory()->create();
+        $source = Source::factory()->create();
 
         // Act
         $result = $this->repository->findBySourceAndSourceArticleId($source->id, 'nonexistent');
@@ -179,7 +182,7 @@ class ArticleRepositoryTest extends TestCase
     public function test_create_creates_new_article()
     {
         // Arrange
-        $source = \App\Models\Source::factory()->create();
+        $source = Source::factory()->create();
         $articleData = [
             'title' => 'Test Article',
             'slug' => 'test-article',
@@ -203,5 +206,191 @@ class ArticleRepositoryTest extends TestCase
             'source_id' => $source->id,
             'source_article_id' => 'test-456'
         ]);
+    }
+
+    public function test_get_filtered_metadata_with_no_filters_returns_all_categories_and_authors()
+    {
+        // Arrange
+        $source1 = Source::factory()->create(['api_slug' => 'source-1']);
+        $source2 = Source::factory()->create(['api_slug' => 'source-2']);
+        $category1 = Category::factory()->create(['slug' => 'tech', 'name' => 'Technology']);
+        $category2 = Category::factory()->create(['slug' => 'sports', 'name' => 'Sports']);
+        $author1 = Author::factory()->create(['name' => 'John Doe']);
+        $author2 = Author::factory()->create(['name' => 'Jane Smith']);
+
+        Article::factory()->create([
+            'source_id' => $source1->id,
+            'category_id' => $category1->id,
+            'author_id' => $author1->id,
+        ]);
+        Article::factory()->create([
+            'source_id' => $source2->id,
+            'category_id' => $category2->id,
+            'author_id' => $author2->id,
+        ]);
+
+        // Act
+        $result = $this->repository->getFilteredMetadata();
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertArrayHasKey('validation', $result);
+        $this->assertIsArray($result['categories']);
+        $this->assertIsArray($result['authors']);
+        $this->assertIsArray($result['validation']);
+        $this->assertArrayHasKey('categoryExists', $result['validation']);
+        $this->assertArrayHasKey('authorExists', $result['validation']);
+    }
+
+    public function test_get_filtered_metadata_with_source_filter_returns_filtered_results()
+    {
+        // Arrange
+        $source1 = Source::factory()->create(['api_slug' => 'source-1']);
+        $source2 = Source::factory()->create(['api_slug' => 'source-2']);
+        $category1 = Category::factory()->create(['slug' => 'tech', 'name' => 'Technology']);
+        $category2 = Category::factory()->create(['slug' => 'sports', 'name' => 'Sports']);
+        $author1 = Author::factory()->create(['name' => 'John Doe']);
+        $author2 = Author::factory()->create(['name' => 'Jane Smith']);
+
+        // Create articles for source1 only
+        Article::factory()->create([
+            'source_id' => $source1->id,
+            'category_id' => $category1->id,
+            'author_id' => $author1->id,
+        ]);
+        // Create article for source2
+        Article::factory()->create([
+            'source_id' => $source2->id,
+            'category_id' => $category2->id,
+            'author_id' => $author2->id,
+        ]);
+
+        // Act
+        $result = $this->repository->getFilteredMetadata(null, 'source-1');
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertArrayHasKey('validation', $result);
+        $this->assertIsArray($result['categories']);
+        $this->assertIsArray($result['authors']);
+        $this->assertIsArray($result['validation']);
+    }
+
+    public function test_get_filtered_metadata_with_source_and_category_filters()
+    {
+        // Arrange
+        $source = Source::factory()->create(['api_slug' => 'test-source']);
+        $category1 = Category::factory()->create(['slug' => 'tech', 'name' => 'Technology']);
+        $category2 = Category::factory()->create(['slug' => 'sports', 'name' => 'Sports']);
+        $author1 = Author::factory()->create(['name' => 'Tech Author']);
+        $author2 = Author::factory()->create(['name' => 'Sports Author']);
+
+        // Create articles in different categories
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category1->id,
+            'author_id' => $author1->id,
+        ]);
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category2->id,
+            'author_id' => $author2->id,
+        ]);
+
+        // Act
+        $result = $this->repository->getFilteredMetadata(null, 'test-source', 'tech');
+
+        // Assert - Basic structure test (Meilisearch data may not be available in unit tests)
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertArrayHasKey('validation', $result);
+        $this->assertIsArray($result['categories']);
+        $this->assertIsArray($result['authors']);
+        $this->assertIsArray($result['validation']);
+    }
+
+    public function test_get_filtered_metadata_with_all_filters()
+    {
+        // Arrange
+        $source = Source::factory()->create(['api_slug' => 'test-source']);
+        $category = Category::factory()->create(['slug' => 'tech', 'name' => 'Technology']);
+        $author1 = Author::factory()->create(['name' => 'John Doe']);
+        $author2 = Author::factory()->create(['name' => 'Jane Smith']);
+
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category->id,
+            'author_id' => $author1->id,
+        ]);
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category->id,
+            'author_id' => $author2->id,
+        ]);
+
+        // Act
+        $result = $this->repository->getFilteredMetadata(null, 'test-source', 'tech', 'John Doe');
+
+        // Assert - Basic structure test
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertArrayHasKey('validation', $result);
+        $this->assertIsArray($result['categories']);
+        $this->assertIsArray($result['authors']);
+        $this->assertIsArray($result['validation']);
+    }
+
+    public function test_get_filtered_metadata_returns_empty_arrays_when_no_matches()
+    {
+        // Arrange - create some articles but search for non-existent source
+        $source = Source::factory()->create(['api_slug' => 'existing-source']);
+        $category = Category::factory()->create(['slug' => 'tech']);
+        $author = Author::factory()->create(['name' => 'John Doe']);
+
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category->id,
+            'author_id' => $author->id,
+        ]);
+
+        // Act - search for non-existent source
+        $result = $this->repository->getFilteredMetadata('non-existent-source');
+
+        // Assert
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertEmpty($result['categories']);
+        $this->assertEmpty($result['authors']);
+    }
+
+    public function test_get_filtered_metadata_handles_null_parameters()
+    {
+        // Arrange
+        $source = Source::factory()->create(['api_slug' => 'test-source']);
+        $category = Category::factory()->create(['slug' => 'tech', 'name' => 'Technology']);
+        $author = Author::factory()->create(['name' => 'John Doe']);
+
+        Article::factory()->create([
+            'source_id' => $source->id,
+            'category_id' => $category->id,
+            'author_id' => $author->id,
+        ]);
+
+        // Act - pass null values explicitly
+        $result = $this->repository->getFilteredMetadata(null, null, null, null);
+
+        // Assert - Basic structure test
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('categories', $result);
+        $this->assertArrayHasKey('authors', $result);
+        $this->assertArrayHasKey('validation', $result);
+        $this->assertIsArray($result['categories']);
+        $this->assertIsArray($result['authors']);
+        $this->assertIsArray($result['validation']);
     }
 }

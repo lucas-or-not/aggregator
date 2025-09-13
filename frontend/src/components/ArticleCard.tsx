@@ -105,7 +105,7 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, forceSave
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             {article.author && (
-              <span title={article.author.name}>Dr. {truncate(article.author.name, 24)}</span>
+              <span title={article.author.name}>{truncate(article.author.name, 24)}</span>
             )}
           </div>
           <div className="text-sm text-gray-400 ml-2 whitespace-nowrap">
