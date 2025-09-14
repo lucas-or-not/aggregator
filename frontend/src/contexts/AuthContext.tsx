@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { User } from '../types'
 import { authApi } from '../services/api'
@@ -30,31 +30,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const mountedRef = useRef(true)
+  const initGuardRef = useRef(false)
+
   useEffect(() => {
+    if (initGuardRef.current) return
+    initGuardRef.current = true
+
+    let cancelled = false
+
     const initAuth = async () => {
       const token = localStorage.getItem('auth_token')
+
+      // If there is no token, clear user
+      if (!token) {
+        localStorage.removeItem('auth_user')
+        if (!cancelled && mountedRef.current) {
+          setUser(null)
+          setLoading(false)
+        }
+        return
+      }
+
       const cached = localStorage.getItem('auth_user')
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as User
-          setUser(parsed)
-        } catch (_ignored) {}
-      }
-      if (token) {
-        try {
-          const fresh = await authApi.getUser()
-          setUser(fresh)
-          localStorage.setItem('auth_user', JSON.stringify(fresh))
-        } catch (error) {
-          localStorage.removeItem('auth_token')
+          if (!cancelled && mountedRef.current) {
+            setUser(parsed)
+          }
+        } catch (_ignored) {
           localStorage.removeItem('auth_user')
-          setUser(null)
         }
       }
-      setLoading(false)
+
+      try {
+        const fresh = await authApi.getUser()
+        if (!cancelled && mountedRef.current) {
+          setUser(fresh)
+          localStorage.setItem('auth_user', JSON.stringify(fresh))
+        }
+      } catch (error: any) {
+        const status = error?.response?.status
+        if (status === 401) {
+          // Token invalid, clear everything
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('auth_user')
+          if (!cancelled && mountedRef.current) {
+            setUser(null)
+          }
+        } 
+      } finally {
+        if (!cancelled && mountedRef.current) {
+          setLoading(false)
+        }
+      }
     }
 
     initAuth()
+
+    return () => {
+      cancelled = true
+      mountedRef.current = false
+    }
   }, [])
 
   const login = async (email: string, password: string) => {
