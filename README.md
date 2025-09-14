@@ -1,6 +1,6 @@
 # News Aggregator
 
-A news aggregation platform built with Laravel (backend) and React (frontend), containerized with Docker.
+A news aggregation platform built with Laravel (backend) and React (frontend), containerized with Docker. Meilisearch is used for full-text search.
 
 ## Features
 
