@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\UserPreference;
 use App\Repositories\Contracts\UserPreferenceRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 
 class UserPreferenceRepository implements UserPreferenceRepositoryInterface
 {
@@ -45,27 +46,41 @@ class UserPreferenceRepository implements UserPreferenceRepositoryInterface
     {
         $preferences = $this->getByUserId($userId);
 
-        $query = Article::with(['source', 'author', 'category']);
+        $query = Article::with(['source', 'author', 'category'])
+            ->leftJoin('user_saved_articles', function ($join) use ($userId) {
+                $join->on('articles.id', '=', 'user_saved_articles.article_id')
+                     ->where('user_saved_articles.user_id', '=', $userId);
+            })
+            ->select('articles.*', 'user_saved_articles.id as saved_id');
 
         // Apply user preferences
         if ($preferences) {
             if (! empty($preferences->preferred_sources)) {
-                $query->whereIn('source_id', $preferences->preferred_sources);
+                $query->whereIn('articles.source_id', $preferences->preferred_sources);
             }
 
             if (! empty($preferences->preferred_categories)) {
-                $query->whereIn('category_id', $preferences->preferred_categories);
+                $query->whereIn('articles.category_id', $preferences->preferred_categories);
             }
 
             if (! empty($preferences->preferred_authors)) {
-                $query->whereIn('author_id', $preferences->preferred_authors);
+                $query->whereIn('articles.author_id', $preferences->preferred_authors);
             }
         }
 
         // Order by published date
-        $query->orderBy('published_at', 'desc');
+        $query->orderBy('articles.published_at', 'desc');
 
-        return $query->paginate($perPage);
+        $articles = $query->paginate($perPage);
+
+        // Add is_saved attribute based on the JOIN result
+        $articles->getCollection()->transform(function ($article) {
+            $article->is_saved = !is_null($article->saved_id);
+            unset($article->saved_id);
+            return $article;
+        });
+
+        return $articles;
     }
 
     public function delete(int $userId): bool

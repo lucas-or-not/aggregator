@@ -9,6 +9,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Mockery;
 use Tests\TestCase;
@@ -25,9 +26,6 @@ class RegisterUserTest extends TestCase
         $this->userRepository = Mockery::mock(UserRepositoryInterface::class);
         $this->action = new RegisterUser($this->userRepository);
         Log::shouldReceive('error')->byDefault();
-        DB::shouldReceive('transaction')->andReturnUsing(function ($callback) {
-            return $callback();
-        });
     }
 
     public function test_execute_creates_user_successfully()
@@ -40,12 +38,11 @@ class RegisterUserTest extends TestCase
             'password_confirmation' => 'password123',
         ];
 
-        $request = Request::create('/register', 'POST', $userData);
-
-        $user = new User;
-        $user->id = 1;
-        $user->name = 'John Doe';
-        $user->email = 'john@example.com';
+        $request = Mockery::mock(Request::class);
+        $request->shouldReceive('validate')->once()->andReturn(true);
+        $request->name = 'John Doe';
+        $request->email = 'john@example.com';
+        $request->password = 'password123';
 
         // Mock user with createToken method
         $user = Mockery::mock(User::class);
@@ -56,12 +53,20 @@ class RegisterUserTest extends TestCase
         // Mock the repository to return the mocked user
         $this->userRepository
             ->shouldReceive('create')
+            ->once()
             ->with([
                 'name' => 'John Doe',
                 'email' => 'john@example.com',
                 'password' => 'password123',
             ])
             ->andReturn($user);
+
+        // Mock DB transaction to execute the callback
+        DB::shouldReceive('transaction')
+            ->once()
+            ->andReturnUsing(function ($callback) {
+                return $callback();
+            });
 
         // Act
         $result = $this->action->execute($request);
@@ -97,12 +102,25 @@ class RegisterUserTest extends TestCase
             'password_confirmation' => 'password123',
         ];
 
-        $request = Request::create('/register', 'POST', $userData);
+        // Create a mock request that bypasses validation
+        $request = Mockery::mock(Request::class);
+        $request->shouldReceive('validate')->once()->andReturn(true);
+        $request->name = 'John Doe';
+        $request->email = 'john@example.com';
+        $request->password = 'password123';
+        $request->shouldReceive('getAttribute')->with('email')->andReturn('john@example.com');
 
         $this->userRepository
             ->shouldReceive('create')
             ->once()
             ->andThrow(new Exception('Database error'));
+
+        // Mock DB transaction to execute the callback
+        DB::shouldReceive('transaction')
+            ->once()
+            ->andReturnUsing(function ($callback) {
+                return $callback();
+            });
 
         // Act & Assert
         $this->expectException(Exception::class);

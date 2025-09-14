@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Repositories\Contracts\ArticleRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 class ArticleRepository implements ArticleRepositoryInterface
@@ -20,81 +21,26 @@ class ArticleRepository implements ArticleRepositoryInterface
         $perPage = $request->get('per_page', 20);
         $searchQuery = $request->get('q', '') ?? '';
 
-        // Use Meilisearch for all article listing and search
         $articles = Article::search($searchQuery, function ($meiliSearch, string $searchQuery, array $options) use ($request) {
-            $filters = [];
-
-            // Handle source filtering
-            if ($request->filled('source')) {
-                $filters[] = 'source_slug = "'.$request->source.'"';
-            }
-
-            // Handle category filtering
-            if ($request->filled('category')) {
-                $filters[] = 'category_slug = "'.$request->category.'"';
-            }
-
-            // Handle author filtering
-            if ($request->filled('author')) {
-                $filters[] = 'author_name = "'.$request->author.'"';
-            }
-
-            // Handle date range filtering
-            if ($request->filled('date_from') || $request->filled('date_to')) {
-                $fromTs = $request->filled('date_from') ? strtotime($request->date_from.' 00:00:00') : null;
-                $toTs = $request->filled('date_to') ? strtotime($request->date_to.' 23:59:59') : null;
-
-                if ($fromTs && $toTs && $fromTs > $toTs) {
-                    // Swap if user provided reversed range
-                    [$fromTs, $toTs] = [$toTs, $fromTs];
-                }
-
-                if ($fromTs) {
-                    $filters[] = 'published_at_ts >= '.$fromTs;
-                }
-
-                if ($toTs) {
-                    $filters[] = 'published_at_ts <= '.$toTs;
-                }
-            }
+            $filters = $this->buildSearchFilters($request);
 
             if (! empty($filters)) {
                 $options['filter'] = implode(' AND ', $filters);
             }
 
-            // Sort by published date descending (newest first)
             $options['sort'] = ['published_at_ts:desc'];
 
             return $meiliSearch->search($searchQuery, $options);
         })->paginate($perPage);
 
-        // Load relationships for the articles
-        $articles->getCollection()->load(['source', 'author', 'category']);
-
-        // Add is_saved attribute for authenticated users
-        if (Auth::check()) {
-            $user = Auth::user();
-            $savedArticleIds = $user->savedArticles()->pluck('article_id')->toArray();
-
-            $articles->getCollection()->transform(function ($article) use ($savedArticleIds) {
-                $article->is_saved = in_array($article->id, $savedArticleIds);
-
-                return $article;
-            });
-        } else {
-            $articles->getCollection()->transform(function ($article) {
-                $article->is_saved = false;
-
-                return $article;
-            });
-        }
+        $this->loadMissingAndSavedStatus($articles);
 
         return $articles;
     }
 
     public function getSavedArticlesForUser(int $userId, int $perPage = 20): LengthAwarePaginator
     {
-        $user = \App\Models\User::findOrFail($userId);
+        $user = User::findOrFail($userId);
 
         return $user->savedArticles()
             ->with(['source', 'author', 'category'])
@@ -104,14 +50,14 @@ class ArticleRepository implements ArticleRepositoryInterface
 
     public function isArticleSavedByUser(int $articleId, int $userId): bool
     {
-        $user = \App\Models\User::findOrFail($userId);
+        $user = User::findOrFail($userId);
 
         return $user->savedArticles()->where('article_id', $articleId)->exists();
     }
 
     public function saveArticleForUser(int $articleId, int $userId): void
     {
-        $user = \App\Models\User::findOrFail($userId);
+        $user = User::findOrFail($userId);
 
         if (! $user->savedArticles()->where('article_id', $articleId)->exists()) {
             $user->savedArticles()->attach($articleId, ['saved_at' => now()]);
@@ -120,7 +66,7 @@ class ArticleRepository implements ArticleRepositoryInterface
 
     public function unsaveArticleForUser(int $articleId, int $userId): void
     {
-        $user = \App\Models\User::findOrFail($userId);
+        $user = User::findOrFail($userId);
         $user->savedArticles()->detach($articleId);
     }
 
@@ -139,37 +85,35 @@ class ArticleRepository implements ArticleRepositoryInterface
     public function getFilteredMetadata(?string $searchQuery = null, ?string $sourceSlug = null, ?string $categorySlug = null, ?string $authorName = null): array
     {
         $searchQuery = $searchQuery ?? '';
-        $filters = [];
         
+        // Build base filters (source only)
+        $baseFilters = [];
         if ($sourceSlug) {
-            $filters[] = 'source_slug = "' . $sourceSlug . '"';
+            $baseFilters[] = 'source_slug = "' . $sourceSlug . '"';
         }
         
-        if ($categorySlug) {
-            $filters[] = 'category_slug = "' . $categorySlug . '"';
-        }
-        
+        // For categories: include source and author filters, but not category
+        $categoryFilters = $baseFilters;
         if ($authorName) {
-            $filters[] = 'author_name = "' . $authorName . '"';
+            $categoryFilters[] = 'author_name = "' . $authorName . '"';
         }
         
-        // Get all facets
-        $results = Article::search($searchQuery, function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
-            if (!empty($filters)) {
-                $options['filter'] = implode(' AND ', $filters);
-            }
-            
-            $options['facets'] = ['category_slug', 'category_name', 'author_name'];
-            $options['limit'] = 0; // We only want facets, not actual results
-            
-            return $meiliSearch->search($searchQuery, $options);
-        });
+        // For authors: include source and category filters, but not author
+        $authorFilters = $baseFilters;
+        if ($categorySlug) {
+            $authorFilters[] = 'category_slug = "' . $categorySlug . '"';
+        }
         
-        $facetDistribution = $results->raw()['facetDistribution'] ?? [];
+        // Get category and author facets
+        $categoryResults = $this->searchWithFilters($searchQuery, $categoryFilters, ['category_slug', 'category_name']);
+        $authorResults = $this->searchWithFilters($searchQuery, $authorFilters, ['author_name']);
+        
+        $categoryFacetDistribution = $categoryResults->raw()['facetDistribution'] ?? [];
+        $authorFacetDistribution = $authorResults->raw()['facetDistribution'] ?? [];
         
         return [
-            'categories' => $this->extractCategories($facetDistribution),
-            'authors' => $this->extractAuthors($facetDistribution),
+            'categories' => $this->extractCategories($categoryFacetDistribution),
+            'authors' => $this->extractAuthors($authorFacetDistribution),
             'validation' => $this->validateFilters($searchQuery, $sourceSlug, $categorySlug, $authorName),
         ];
     }
@@ -196,44 +140,24 @@ class ArticleRepository implements ArticleRepositoryInterface
     
     private function categoryExistsForFilters(?string $searchQuery, ?string $sourceSlug, string $categorySlug, ?string $authorName): bool
     {
-        $filters = ['category_slug = "' . $categorySlug . '"'];
+        $filters = $this->buildFilterArray([
+            'category_slug' => $categorySlug,
+            'source_slug' => $sourceSlug,
+            'author_name' => $authorName,
+        ]);
         
-        if ($sourceSlug) {
-            $filters[] = 'source_slug = "' . $sourceSlug . '"';
-        }
-        
-        if ($authorName) {
-            $filters[] = 'author_name = "' . $authorName . '"';
-        }
-        
-        $results = Article::search($searchQuery ?? '', function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
-            $options['filter'] = implode(' AND ', $filters);
-            $options['limit'] = 1;
-            return $meiliSearch->search($searchQuery, $options);
-        });
-        
-        return $results->get()->count() > 0;
+        return $this->existsWithFilters($searchQuery, $filters);
     }
     
     private function authorExistsForFilters(?string $searchQuery, ?string $sourceSlug, ?string $categorySlug, string $authorName): bool
     {
-        $filters = ['author_name = "' . $authorName . '"'];
+        $filters = $this->buildFilterArray([
+            'author_name' => $authorName,
+            'source_slug' => $sourceSlug,
+            'category_slug' => $categorySlug,
+        ]);
         
-        if ($sourceSlug) {
-            $filters[] = 'source_slug = "' . $sourceSlug . '"';
-        }
-        
-        if ($categorySlug) {
-            $filters[] = 'category_slug = "' . $categorySlug . '"';
-        }
-        
-        $results = Article::search($searchQuery ?? '', function ($meiliSearch, string $searchQuery, array $options) use ($filters) {
-            $options['filter'] = implode(' AND ', $filters);
-            $options['limit'] = 1;
-            return $meiliSearch->search($searchQuery, $options);
-        });
-        
-        return $results->get()->count() > 0;
+        return $this->existsWithFilters($searchQuery, $filters);
     }
     
     private function extractCategories(array $facetDistribution): array
@@ -244,11 +168,7 @@ class ArticleRepository implements ArticleRepositoryInterface
             foreach ($facetDistribution['category_slug'] as $slug => $count) {
                 if ($count > 0 && $slug) {
                     // Get category name from a sample article
-                    $sampleArticle = Article::search('', function ($meiliSearch, string $searchQuery, array $options) use ($slug) {
-                        $options['filter'] = 'category_slug = "' . $slug . '"';
-                        $options['limit'] = 1;
-                        return $meiliSearch->search($searchQuery, $options);
-                    })->first();
+                    $sampleArticle = $this->searchWithFilters('', ['category_slug = "' . $slug . '"'], [], 1)->first();
                     
                     if ($sampleArticle && $sampleArticle->category) {
                         $categories[] = [
@@ -283,5 +203,120 @@ class ArticleRepository implements ArticleRepositoryInterface
         
         usort($authors, fn($a, $b) => strcmp($a['label'], $b['label']));
         return $authors;
+    }
+
+    /**
+     * Build search filters from request parameters
+     */
+    private function buildSearchFilters(Request $request): array
+    {
+        $filters = [];
+
+        // Handle source filtering
+        if ($request->filled('source')) {
+            $filters[] = 'source_slug = "'.$request->source.'"';
+        }
+
+        // Handle category filtering
+        if ($request->filled('category')) {
+            $filters[] = 'category_slug = "'.$request->category.'"';
+        }
+
+        // Handle author filtering
+        if ($request->filled('author')) {
+            $filters[] = 'author_name = "'.$request->author.'"';
+        }
+
+        // Handle date range filtering
+        if ($request->filled('date_from') || $request->filled('date_to')) {
+            $fromTs = $request->filled('date_from') ? strtotime($request->date_from.' 00:00:00') : null;
+            $toTs = $request->filled('date_to') ? strtotime($request->date_to.' 23:59:59') : null;
+
+            if ($fromTs && $toTs && $fromTs > $toTs) {
+                // Swap if user provided reversed range
+                [$fromTs, $toTs] = [$toTs, $fromTs];
+            }
+
+            if ($fromTs) {
+                $filters[] = 'published_at_ts >= '.$fromTs;
+            }
+
+            if ($toTs) {
+                $filters[] = 'published_at_ts <= '.$toTs;
+            }
+        }
+
+        return $filters;
+    }
+
+    /**
+     * Add saved status to articles collection
+     */
+    private function loadMissingAndSavedStatus(LengthAwarePaginator $articles): void
+    {
+        $articles->getCollection()->load(['source', 'author', 'category']);
+
+        $savedArticleIds = [];
+        $user = Auth::guard('sanctum')->user();
+
+        if ($user) {
+            $savedArticleIds = $user
+                ->savedArticles()
+                ->pluck('article_id')
+                ->all();
+        }
+
+        $savedLookup = array_flip($savedArticleIds);
+
+        $articles->getCollection()->transform(function ($article) use ($savedLookup) {
+            $article->is_saved = isset($savedLookup[$article->id]);
+            return $article;
+        });
+    }
+
+
+    /**
+     * Perform search with filters and facets
+     */
+    private function searchWithFilters(string $searchQuery, array $filters, array $facets = [], int $limit = 0)
+    {
+        return Article::search($searchQuery, function ($meiliSearch, string $searchQuery, array $options) use ($filters, $facets, $limit) {
+            if (!empty($filters)) {
+                $options['filter'] = implode(' AND ', $filters);
+            }
+            
+            if (!empty($facets)) {
+                $options['facets'] = $facets;
+            }
+            
+            $options['limit'] = $limit;
+            
+            return $meiliSearch->search($searchQuery, $options);
+        });
+    }
+
+    /**
+     * Build filter array from key-value pairs, excluding null values
+     */
+    private function buildFilterArray(array $filterData): array
+    {
+        $filters = [];
+        
+        foreach ($filterData as $field => $value) {
+            if ($value !== null) {
+                $filters[] = $field . ' = "' . $value . '"';
+            }
+        }
+        
+        return $filters;
+    }
+
+    /**
+     * Check if any articles exist with the given filters
+     */
+    private function existsWithFilters(?string $searchQuery, array $filters): bool
+    {
+        $results = $this->searchWithFilters($searchQuery ?? '', $filters, [], 1);
+        return $results->get()->count() > 0;
     }
 }

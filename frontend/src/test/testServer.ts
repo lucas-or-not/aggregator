@@ -41,6 +41,21 @@ export const handlers = [
       { id: 1, name: 'Ada Lovelace', canonical_name: 'ada-lovelace' },
     ]})
   }),
+  http.get(`${API}/metadata/filtered`, ({ request }) => {
+    const url = new URL(request.url)
+    const query = url.searchParams.get('q') || ''
+    const source = url.searchParams.get('source') || ''
+    const category = url.searchParams.get('category') || ''
+    
+    return HttpResponse.json({
+      success: true,
+      data: {
+        sources: [{ id: 1, name: 'NewsAPI', api_slug: 'newsapi' }],
+        categories: [{ id: 1, name: 'Technology', slug: 'technology' }],
+        authors: [{ id: 1, name: 'Ada Lovelace', canonical_name: 'ada-lovelace' }]
+      }
+    })
+  }),
   http.get(`${API}/articles/search`, ({ request }) => {
     return HttpResponse.json({
       data: [

@@ -36,6 +36,8 @@ export const useSaveArticle = (articleId: number) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['article', String(articleId)] })
       queryClient.invalidateQueries({ queryKey: ['saved-articles'] })
+      queryClient.invalidateQueries({ queryKey: ['search'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
   })
 
@@ -44,6 +46,8 @@ export const useSaveArticle = (articleId: number) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['article', String(articleId)] })
       queryClient.invalidateQueries({ queryKey: ['saved-articles'] })
+      queryClient.invalidateQueries({ queryKey: ['search'] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
   })
 
