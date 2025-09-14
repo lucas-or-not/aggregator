@@ -1,32 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { articlesApi } from '../services/api'
 import '../components/ArticleCard'
-import LoadingState from '../components/LoadingState'
-import ArticlesLoadingState from '../components/ArticlesLoadingState'
 import FiltersBar from '../components/FiltersBar'
-import type { PaginatedResponse, Article } from '../types'
-import { DEFAULT_PAGE_SIZE } from '../config'
+import SearchResults from '../components/SearchResults'
 import { useAuthors, useCategories, useSources } from '../hooks/useTaxonomies'
-import { useFilteredCategories, useFilteredAuthors } from '../hooks/useFilteredMetadata'
-import Pagination from '../components/Pagination'
-import ArticleGrid from '../components/ArticleGrid'
-import { useToast } from '../contexts/ToastContext'
+import { useSearchFilters } from '../hooks/useSearchFilters'
+import { useSearchResults } from '../hooks/useSearchResults'
 
 const Search: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [page, setPage] = useState(Number(searchParams.get('page') || 1))
-  const perPage = DEFAULT_PAGE_SIZE
-  const [filters, setFilters] = useState({
-    source: '',
-    category: '',
-    author: '',
-    date_from: '',
-    date_to: '',
-  })
-  const { showToast } = useToast()
 
   useEffect(() => {
     const urlQuery = searchParams.get('q')
@@ -35,89 +18,30 @@ const Search: React.FC = () => {
     }
   }, [searchParams])
 
-  const { data: articles, isLoading, error } = useQuery<PaginatedResponse<Article>>({
-    queryKey: ['search', query, filters, page, perPage],
-    queryFn: () => {
-      const q = query.trim()
-      return articlesApi.search({ q: q || '', ...filters, page, per_page: perPage })
-    },
-  })
+  // Use custom hooks for search logic
+  const {
+    filters,
+    handleFilterChange,
+    filteredCategories,
+    filteredAuthors,
+    isLoadingCategories,
+    isLoadingAuthors,
+    clearAllFilters
+  } = useSearchFilters(query)
 
+  const { articles, isLoading, error, handlePageChange } = useSearchResults(query, filters)
+
+  // Get taxonomy data
   const { data: sources } = useSources()
   const { data: categories } = useCategories()
   const { data: authors } = useAuthors()
 
-  // Get filtered metadata based on current selections
-  const { data: filteredCategories, isLoading: isLoadingCategories } = useFilteredCategories(
-    query || undefined,
-    filters.source || undefined,
-    filters.author || undefined
-  )
-  const { authors: filteredAuthors, isLoading: isLoadingAuthors, validation } = useFilteredAuthors(
-    query || undefined,
-    filters.source || undefined,
-    filters.category || undefined,
-    filters.author || undefined
-  )
-
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: value }
-      
-      return newFilters
-    })
-    setPage(1) // Reset to first page when filters change
+  const handleQueryChange = (val: string) => {
+    setQuery(val)
+    const t = val.trim()
+    if (t) setSearchParams({ q: t, page: '1' })
+    else setSearchParams({ page: '1' })
   }
-  
-  // Effect to handle smart filter clearing based on validation
-  const lastToastRef = React.useRef<string>('')
-  const [resetFiltersToShow, setResetFiltersToShow] = React.useState<string[]>([])
-  
-  React.useEffect(() => {
-    if (validation && (filters.source || filters.author || filters.category)) {
-      setFilters(prev => {
-        const newFilters = { ...prev }
-        let changed = false
-        const resetFilters: string[] = []
-        
-        // Reset category to 'all' if it doesn't exist for the current filters
-        if (prev.category && !validation.categoryExists) {
-          newFilters.category = ''
-          changed = true
-          resetFilters.push('category')
-        }
-        
-        // Reset author to 'all' if it doesn't exist for the current filters
-        if (prev.author && !validation.authorExists) {
-          newFilters.author = ''
-          changed = true
-          resetFilters.push('author')
-        }
-        
-        if (changed && resetFilters.length > 0) {
-          setResetFiltersToShow(resetFilters)
-        }
-        
-        return changed ? newFilters : prev
-      })
-    }
-  }, [validation, filters.source, filters.author, filters.category])
-  
-  // Separate effect to show toast after state update
-  React.useEffect(() => {
-    if (resetFiltersToShow.length > 0) {
-      const toastKey = resetFiltersToShow.sort().join('-')
-      if (lastToastRef.current !== toastKey) {
-        lastToastRef.current = toastKey
-        showToast('info', 'Filters Reset', `${resetFiltersToShow.join(' and ')} filter${resetFiltersToShow.length > 1 ? 's' : ''} reset to 'all': incompatible with current source/category!`)
-        // Reset the ref after a short delay to allow future toasts
-        setTimeout(() => { lastToastRef.current = '' }, 1000)
-      }
-      setResetFiltersToShow([])
-    }
-  }, [resetFiltersToShow, showToast])
-  
-
 
   return (
     <div className="px-4 sm:px-0">
@@ -127,15 +51,9 @@ const Search: React.FC = () => {
 
         <FiltersBar
           query={query}
-          onQueryChange={(val) => {
-            setQuery(val)
-            setPage(1)
-            const t = val.trim()
-            if (t) setSearchParams({ q: t, page: '1' })
-            else setSearchParams({ page: '1' })
-          }}
+          onQueryChange={handleQueryChange}
           filters={filters}
-          onFilterChange={(k, v) => handleFilterChange(k, v)}
+          onFilterChange={handleFilterChange}
           sourceOptions={(sources?.map((s) => ({ value: s.api_slug, label: s.name })) || [])}
           categoryOptions={(filters.source || filters.author) ? 
             (filteredCategories || []).map((c) => ({ value: c.value, label: c.label })) : 
@@ -150,34 +68,18 @@ const Search: React.FC = () => {
         />
       </div>
 
-      {isLoading && <LoadingState variant="grid" />}
-
-      {error && <ArticlesLoadingState onRefresh={() => window.location.reload()} />}
-
-      {articles && !isLoading && (
-        <>
-          <div className="mb-4">
-            <p className="text-gray-600">
-              Found {articles?.total || 0} article{(articles?.total || 0) !== 1 ? 's' : ''} for "{query}"
-            </p>
-          </div>
-
-          {articles?.data && articles.data.length > 0 ? (
-            <>
-              <ArticleGrid articles={articles.data} />
-              <Pagination
-                currentPage={articles.current_page}
-                lastPage={articles.last_page}
-                onPageChange={(p) => { setPage(p); setSearchParams({ q: query, page: String(p) }) }}
-              />
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No articles found matching your search.</p>
-            </div>
-          )}
-        </>
-      )}
+      <SearchResults
+        articles={articles}
+        isLoading={isLoading}
+        error={error}
+        query={query}
+        filters={filters}
+        sources={sources}
+        categories={categories}
+        authors={authors}
+        onPageChange={handlePageChange}
+        onClearFilters={clearAllFilters}
+      />
     </div>
   )
 }
